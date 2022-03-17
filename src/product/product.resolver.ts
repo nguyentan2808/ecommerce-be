@@ -49,7 +49,7 @@ export class ProductResolver {
     return this.productService.update(updateProductInput.id, updateProductInput);
   }
 
-  @Mutation(() => Product)
+  @Mutation(() => Boolean)
   removeProduct(@Args('id', { type: () => Int }) id: number) {
     return this.productService.remove(id);
   }

@@ -38,6 +38,10 @@ export class CategoryService {
     };
   }
 
+  async findByName(name: string) {
+    return this.categoryRepository.findOne({ where: { name } });
+  }
+
   async getProducts(id: number) {
     const category = await this.categoryRepository.findOne({
       where: { id },
@@ -53,8 +57,13 @@ export class CategoryService {
     return this.categoryRepository.findOne({ where: [{ name: name }] });
   }
 
-  update(id: number, updateCategoryInput: UpdateCategoryInput) {
-    return `This action updates a #${id} category`;
+  async update(id: number, updateCategoryInput: UpdateCategoryInput) {
+    const category = await this.categoryRepository.findOne(id);
+    if (!category) throw new NotFoundException('Category not found');
+
+    Object.assign(category, updateCategoryInput);
+
+    return this.categoryRepository.save(category);
   }
 
   async remove(id: number) {

@@ -1,6 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { getConnection, Repository } from 'typeorm';
+import { CategoryService } from './../category/category.service';
 import { CreateProductInput } from './dto/create-product.input';
 import { UpdateProductInput } from './dto/update-product.input';
 import { ProductImage } from './entities/product-image.entity';
@@ -10,14 +11,14 @@ import { Product } from './entities/product.entity';
 export class ProductService {
   constructor(
     @InjectRepository(Product) private productRepository: Repository<Product>,
-    @InjectRepository(ProductImage) private productImageRepository: Repository<ProductImage>
+    @InjectRepository(ProductImage) private productImageRepository: Repository<ProductImage>,
+    private readonly categoryService: CategoryService
   ) {}
 
   async create(createProductInput: CreateProductInput) {
-    // const product = this.productRepository.create(createProductInput);
-    const { images } = createProductInput;
+    const { images, categories } = createProductInput;
 
-    const result = await Promise.all(
+    const _images = await Promise.all(
       [...images].map((item) => {
         const productImage = new ProductImage();
         productImage.url = item;
@@ -25,12 +26,18 @@ export class ProductService {
       })
     );
 
+    const _categories = await Promise.all(
+      [...categories].map((categoryName) => {
+        return this.categoryService.findByName(categoryName);
+      })
+    );
+
     const product = new Product();
 
     Object.assign(product, createProductInput);
-    product.images = result;
+    product.images = _images;
+    product.categories = _categories;
 
-    console.log(product);
     await this.productRepository.save(product);
     return product;
   }
@@ -58,16 +65,44 @@ export class ProductService {
     });
   }
 
-  update(id: number, updateProductInput: UpdateProductInput) {
-    return `This action updates a #${id} product`;
+  async update(id: number, updateProductInput: UpdateProductInput) {
+    const product = await this.productRepository.findOne(id);
+    if (!product) throw new NotFoundException('Product not found');
+
+    const { images, categories } = updateProductInput;
+
+    const _images = await Promise.all(
+      [...images].map((item) => {
+        const productImage = new ProductImage();
+        productImage.url = item;
+        return this.productImageRepository.save(productImage);
+      })
+    );
+
+    const _categories = await Promise.all(
+      [...categories].map((categoryName) => {
+        return this.categoryService.findByName(categoryName);
+      })
+    );
+
+    Object.assign(product, updateProductInput);
+
+    product.images = _images;
+    product.categories = _categories;
+
+    return this.productRepository.save(product);
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} product`;
+  async remove(id: number) {
+    const product = await this.productRepository.findOne({ where: { id } });
+    if (!product) {
+      throw new NotFoundException();
+    }
+    await this.productRepository.remove(product);
+    return true;
   }
 
   getImages(id: number) {
-    console.log(id);
     return this.productImageRepository.find({ where: { productId: id } });
   }
 
